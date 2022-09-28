@@ -4,7 +4,7 @@
   <name>carla_client_py</name>
   <version>0.0.0</version>
   <description>
-    Carla Client for ARM embedded Platform
+    Carla Python3 Client for ARM Embedded Platform
   </description>
   <maintainer email="zhou_chenz@163.com">clarencez</maintainer>
   <license>MIT License</license>
