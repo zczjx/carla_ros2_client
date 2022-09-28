@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'carla_ros2_client'
+package_name = 'carla_client_py'
 
 setup(
     name=package_name,
@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'carla_client = carla_ros2_client.carla_client:main',
+            'carla_client = carla_client_py.carla_client:main',
         ],
     },
 )
