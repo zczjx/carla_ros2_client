@@ -25,7 +25,7 @@ class DebugViz(Node):
         """
         Callback when receiving a camera image
         """
-        # self.h264_msg_info(image)
+        self.h264_msg_info(image)
         array = numpy.frombuffer(image.data, dtype=numpy.dtype("uint8"))
         array = numpy.reshape(array, (image.height, image.width, 4))
         array = array[:, :, :3]
