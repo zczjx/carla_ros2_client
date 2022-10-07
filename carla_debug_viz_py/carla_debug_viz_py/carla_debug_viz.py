@@ -20,6 +20,7 @@ class DebugViz(Node):
         self.get_logger().info('image_msg.height: [%d]' % image_msg.height)
         self.get_logger().info('image_msg.width: [%d]' % image_msg.width)
         self.get_logger().info('image_msg.encoding: [%s]' % image_msg.encoding)
+        self.get_logger().info('len(image_msg.data): [%d]' % len(image_msg.data))
 
     def on_view_image(self, image):
         """
