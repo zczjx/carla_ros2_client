@@ -15,11 +15,11 @@ VideoDecoder::VideoDecoder(std::string &codec_name)
         exit(1);
 
     /* find the mpeg1video encoder */
-    m_codec.reset(avcodec_find_encoder_by_name(m_codec_name.c_str()));
+    m_codec.reset(avcodec_find_decoder_by_name(m_codec_name.c_str()));
 
     if (nullptr == m_codec)
     {
-        std::cerr << "Codec: " << m_codec_name << "not found" << std::endl;
+        std::cerr << "Codec: " << m_codec_name << " not found" << std::endl;
         exit(1);
     }
 
@@ -59,7 +59,7 @@ VideoDecoder::VideoDecoder(std::string &codec_name)
 int VideoDecoder::parseFrame(std::shared_ptr<sensor_msgs::msg::Image> image_msg, int pts_idx)
 {
     int used_bytes = av_parser_parse2(m_parser.get(), m_ctx.get(), &m_pkt->data, &m_pkt->size,
-            image_msg->data.data(), image_msg->data.size(), AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
+            image_msg->data.data(), image_msg->data.size(), pts_idx, AV_NOPTS_VALUE, 0);
 
     if (used_bytes < 0)
         std::cerr << "Error while parsing" << std::endl;
@@ -82,10 +82,11 @@ void VideoDecoder::decode(std::queue<std::shared_ptr<sensor_msgs::msg::Image>> &
 
     if (m_pkt->size <= 0)
     {
-        std::cerr << "empty packet to decode" << std::endl;
+        std::cerr << "empty packet to decode m_pkt->size: " << m_pkt->size << std::endl;
         return;
     }
 
+    std::cerr << "got correct packet to decode" << std::endl;
     ret = avcodec_send_packet(m_ctx.get(), m_pkt.get());
 
     if (ret < 0)
@@ -99,7 +100,11 @@ void VideoDecoder::decode(std::queue<std::shared_ptr<sensor_msgs::msg::Image>> &
         ret = avcodec_receive_frame(m_ctx.get(), m_frame.get());
 
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+        {
+            std::cerr << "decode fail or finished" << std::endl;
             return;
+        }
+
         else if (ret < 0)
         {
             std::cerr << "Error during encoding" << std::endl;
@@ -107,9 +112,12 @@ void VideoDecoder::decode(std::queue<std::shared_ptr<sensor_msgs::msg::Image>> &
         }
 
         printf("saving frame %3d\n", m_ctx->frame_number);
+        printf("image pixformat: %d\n", m_frame->format);
         auto decode_msg = std::make_shared<sensor_msgs::msg::Image>();
         decode_msg->header.frame_id = "video_dec/image_bgra";
         decode_msg->encoding = m_codec_name;
+        decode_msg->width = m_frame->width;
+        decode_msg->height = m_frame->height;
         decode_msg->data.insert(decode_msg->data.end(), m_frame->data[0], (m_frame->data[0] + m_frame->linesize[0]));
         out_buffer.push(decode_msg);
     }

@@ -52,7 +52,6 @@ private:
 void VideoDecNode::doDecode()
 {
   RCLCPP_INFO(this->get_logger(), "video doDecode thread started");
-  int pts_idx = 0;
 
   while (!m_stopSignal && rclcpp::ok())
   {
@@ -66,9 +65,8 @@ void VideoDecNode::doDecode()
       m_buffer.pop();
     }
     auto image_msg = std::make_shared<sensor_msgs::msg::Image>(*tmp_image);
-    m_decoder->parseFrame(image_msg, pts_idx);
+    m_decoder->parseFrame(image_msg, image_msg->step);
     m_decoder->decode(m_decodeBuffer);
-    pts_idx++;
   }
 
 }
