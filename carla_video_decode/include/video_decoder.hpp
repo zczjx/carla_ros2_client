@@ -19,25 +19,25 @@ extern "C" {
 namespace video_dec_node
 {
 
-class VideoEncoder
+class VideoDecoder
 {
 public:
-    VideoEncoder(std::string &codec_name);
+    VideoDecoder(std::string &codec_name);
 
-    std::shared_ptr<AVFrame> fillinFrame(std::shared_ptr<sensor_msgs::msg::Image> image_msg, int pts_idx);
+    int parseFrame(std::shared_ptr<sensor_msgs::msg::Image> image_msg, int pts_idx);
 
-    void flushEncode(std::shared_ptr<FILE> outfile);
+    void flushDecode();
 
-    void encode(std::shared_ptr<AVFrame> frame, std::queue<std::shared_ptr<sensor_msgs::msg::Image>> &out_buffer);
+    void decode(std::queue<std::shared_ptr<sensor_msgs::msg::Image>> &out_buffer);
 
-    void encode(std::shared_ptr<AVFrame> frame, std::shared_ptr<FILE> outfile);
+    // void decode(std::shared_ptr<FILE> outfile);
 
-
-    ~VideoEncoder();
+    ~VideoDecoder();
 
 private:
     std::shared_ptr<const AVCodec> m_codec;
     std::string m_codec_name;
+    std::shared_ptr<AVCodecParserContext> m_parser;
     std::shared_ptr<AVCodecContext> m_ctx{nullptr};
     std::shared_ptr<AVFrame> m_frame;
     std::shared_ptr<AVPacket> m_pkt;

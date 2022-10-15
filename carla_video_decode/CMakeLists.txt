@@ -21,9 +21,18 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 
+# Find ffmpeg libraries
+find_package(PkgConfig  REQUIRED)
+set(ENV{PKG_CONFIG_PATH} "/opt/ffmpeg/lib/pkgconfig")
+pkg_search_module(PC_AVFORMAT REQUIRED libavformat)
+pkg_search_module(PC_AVCODEC REQUIRED libavcodec)
+pkg_search_module(PC_AVUTIL REQUIRED libavutil)
+pkg_search_module(PC_SWSCALE REQUIRED libswscale)
+
 add_executable(
   video_dec_node
   src/video_dec_node.cpp
+  src/video_decoder.cpp
 )
 
 target_include_directories(video_dec_node PUBLIC
@@ -34,6 +43,19 @@ ament_target_dependencies(
   "rclcpp"
   "std_msgs"
   "sensor_msgs"
+)
+
+include_directories(
+  ${PC_AVFORMAT_INCLUDE_DIRS}
+  ${PC_AVCODEC_INCLUDE_DIRS}
+  ${PC_AVUTIL_INCLUDE_DIRS}
+)
+
+target_link_libraries(
+  video_dec_node
+  ${PC_AVFORMAT_LDFLAGS}
+  ${PC_AVCODEC_LDFLAGS}
+  ${PC_AVUTIL_LDFLAGS}
 )
 
 install(TARGETS video_dec_node

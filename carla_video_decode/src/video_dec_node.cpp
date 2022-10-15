@@ -1,7 +1,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 #include "sensor_msgs/msg/image.hpp"
-// #include "video_decoder.hpp"
+#include "video_decoder.hpp"
 
 #include <queue>
 #include <thread>
@@ -19,7 +19,7 @@ public:
     // Create a callback function for when messages are received.
     // Variations of this function also exist using, for example UniquePtr for zero-copy transport.
     std::string codec_name("h264_cuvid");
-    // m_decoder = std::make_shared<VideoEncoder>(codec_name);
+    m_decoder = std::make_shared<VideoDecoder>(codec_name);
     m_pub = create_publisher<sensor_msgs::msg::Image>("/carla/video_dec/image_bgra", 10);
     m_decodeThread = std::make_unique<std::thread>([this]() { doDecode(); });
     m_pubThread = std::make_unique<std::thread>([this]() { doPublish(); });
@@ -33,7 +33,7 @@ public:
 private:
   rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr m_sub;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr m_pub;
-  // std::shared_ptr<VideoEncoder> m_decoder;
+  std::shared_ptr<VideoDecoder> m_decoder;
 
   std::queue<std::shared_ptr<sensor_msgs::msg::Image>> m_buffer;
   std::mutex m_bufferMutex;
@@ -65,10 +65,10 @@ void VideoDecNode::doDecode()
       tmp_image = m_buffer.front();
       m_buffer.pop();
     }
-    // auto image_msg = std::make_shared<sensor_msgs::msg::Image>(*tmp_image);
-    // auto bgra_frame = m_decoder->fillinFrame(image_msg, pts_idx);
-    // m_decoder->encode(bgra_frame, m_decodeBuffer);
-    // pts_idx++;
+    auto image_msg = std::make_shared<sensor_msgs::msg::Image>(*tmp_image);
+    m_decoder->parseFrame(image_msg, pts_idx);
+    m_decoder->decode(m_decodeBuffer);
+    pts_idx++;
   }
 
 }
