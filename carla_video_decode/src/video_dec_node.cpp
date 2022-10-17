@@ -41,6 +41,9 @@ private:
   std::queue<std::shared_ptr<sensor_msgs::msg::Image>> m_decodeBuffer;
   std::mutex m_decodeBufferMutex;
 
+  std::queue<std::shared_ptr<sensor_msgs::msg::Image>> m_rgbaPixelBuffer;
+  std::mutex m_pixelBufferMutex;
+
   std::unique_ptr<std::thread> m_pubThread;
   std::unique_ptr<std::thread> m_decodeThread;
   std::atomic<bool> m_stopSignal;

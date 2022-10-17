@@ -54,6 +54,8 @@ VideoDecoder::VideoDecoder(std::string &codec_name)
         std::cerr << "Could not allocate video frame" << std::endl;
         exit(1);
     }
+
+    m_convert = std::make_shared<PixFmtConvert>(AV_PIX_FMT_BGRA);
 }
 
 int VideoDecoder::parseFrame(std::shared_ptr<sensor_msgs::msg::Image> image_msg, int pts_idx)
@@ -113,12 +115,13 @@ void VideoDecoder::decode(std::queue<std::shared_ptr<sensor_msgs::msg::Image>> &
 
         printf("saving frame %3d\n", m_ctx->frame_number);
         printf("image pixformat: %d\n", m_frame->format);
+        std::shared_ptr<AVFrame> bgra_frame = m_convert->convertFormat(m_frame);
         auto decode_msg = std::make_shared<sensor_msgs::msg::Image>();
         decode_msg->header.frame_id = "video_dec/image_bgra";
         decode_msg->encoding = m_codec_name;
-        decode_msg->width = m_frame->width;
-        decode_msg->height = m_frame->height;
-        decode_msg->data.insert(decode_msg->data.end(), m_frame->data[0], (m_frame->data[0] + m_frame->linesize[0]));
+        decode_msg->width = bgra_frame->width;
+        decode_msg->height = bgra_frame->height;
+        decode_msg->data.insert(decode_msg->data.end(), bgra_frame->data[0], (bgra_frame->data[0] + bgra_frame->linesize[0]));
         out_buffer.push(decode_msg);
     }
 }

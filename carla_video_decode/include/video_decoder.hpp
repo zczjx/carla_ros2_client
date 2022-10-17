@@ -9,11 +9,13 @@
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/opt.h>
+#include <libavutil/pixfmt.h>
 #include <libavutil/imgutils.h>
 #include <stdlib.h>
 #include <string.h>
 }
 
+#include "pixfmt_convert.hpp"
 #include "sensor_msgs/msg/image.hpp"
 
 namespace video_dec_node
@@ -41,6 +43,8 @@ private:
     std::shared_ptr<AVCodecContext> m_ctx{nullptr};
     std::shared_ptr<AVFrame> m_frame;
     std::shared_ptr<AVPacket> m_pkt;
+
+    std::shared_ptr<PixFmtConvert> m_convert;
 };
 
 }

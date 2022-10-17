@@ -33,6 +33,7 @@ add_executable(
   video_dec_node
   src/video_dec_node.cpp
   src/video_decoder.cpp
+  src/pixfmt_convert.cpp
 )
 
 target_include_directories(video_dec_node PUBLIC
@@ -49,6 +50,7 @@ include_directories(
   ${PC_AVFORMAT_INCLUDE_DIRS}
   ${PC_AVCODEC_INCLUDE_DIRS}
   ${PC_AVUTIL_INCLUDE_DIRS}
+  ${PC_SWSCALE_INCLUDE_DIRS}
 )
 
 target_link_libraries(
@@ -56,6 +58,7 @@ target_link_libraries(
   ${PC_AVFORMAT_LDFLAGS}
   ${PC_AVCODEC_LDFLAGS}
   ${PC_AVUTIL_LDFLAGS}
+  ${PC_SWSCALE_LDFLAGS}
 )
 
 install(TARGETS video_dec_node
