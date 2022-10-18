@@ -18,7 +18,7 @@ public:
   {
     // Create a callback function for when messages are received.
     // Variations of this function also exist using, for example UniquePtr for zero-copy transport.
-    std::string codec_name("h264_cuvid");
+    std::string codec_name("h264");
     m_decoder = std::make_shared<VideoDecoder>(codec_name);
     m_pub = create_publisher<sensor_msgs::msg::Image>("/carla/video_dec/image_bgra", 10);
     m_decodeThread = std::make_unique<std::thread>([this]() { doDecode(); });

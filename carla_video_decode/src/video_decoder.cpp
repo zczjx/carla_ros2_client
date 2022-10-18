@@ -61,7 +61,7 @@ VideoDecoder::VideoDecoder(std::string &codec_name)
 int VideoDecoder::parseFrame(std::shared_ptr<sensor_msgs::msg::Image> image_msg, int pts_idx)
 {
     int used_bytes = av_parser_parse2(m_parser.get(), m_ctx.get(), &m_pkt->data, &m_pkt->size,
-            image_msg->data.data(), image_msg->data.size(), pts_idx, AV_NOPTS_VALUE, 0);
+            image_msg->data.data(), image_msg->data.size(), AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0);
 
     if (used_bytes < 0)
         std::cerr << "Error while parsing" << std::endl;
@@ -88,13 +88,12 @@ void VideoDecoder::decode(std::queue<std::shared_ptr<sensor_msgs::msg::Image>> &
         return;
     }
 
-    std::cerr << "got correct packet to decode" << std::endl;
     ret = avcodec_send_packet(m_ctx.get(), m_pkt.get());
 
     if (ret < 0)
     {
         std::cerr << "Error sending a frame for encoding" << std::endl;
-        exit(1);
+        return;
     }
 
     while (ret >= 0)
@@ -103,25 +102,23 @@ void VideoDecoder::decode(std::queue<std::shared_ptr<sensor_msgs::msg::Image>> &
 
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
         {
-            std::cerr << "decode fail or finished" << std::endl;
             return;
         }
-
         else if (ret < 0)
         {
             std::cerr << "Error during encoding" << std::endl;
             exit(1);
         }
 
-        printf("saving frame %3d\n", m_ctx->frame_number);
-        printf("image pixformat: %d\n", m_frame->format);
+        std::cerr << "decode frame num: " << m_ctx->frame_number << std::endl;
         std::shared_ptr<AVFrame> bgra_frame = m_convert->convertFormat(m_frame);
         auto decode_msg = std::make_shared<sensor_msgs::msg::Image>();
         decode_msg->header.frame_id = "video_dec/image_bgra";
-        decode_msg->encoding = m_codec_name;
+        decode_msg->encoding = "bgra8";
         decode_msg->width = bgra_frame->width;
         decode_msg->height = bgra_frame->height;
-        decode_msg->data.insert(decode_msg->data.end(), bgra_frame->data[0], (bgra_frame->data[0] + bgra_frame->linesize[0]));
+        uint32_t image_bytes = bgra_frame->linesize[0] * bgra_frame->height;
+        decode_msg->data.insert(decode_msg->data.end(), bgra_frame->data[0], (bgra_frame->data[0] + image_bytes));
         out_buffer.push(decode_msg);
     }
 }

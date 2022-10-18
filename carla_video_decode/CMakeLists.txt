@@ -23,7 +23,7 @@ find_package(sensor_msgs REQUIRED)
 
 # Find ffmpeg libraries
 find_package(PkgConfig  REQUIRED)
-set(ENV{PKG_CONFIG_PATH} "/opt/ffmpeg/lib/pkgconfig")
+# set(ENV{PKG_CONFIG_PATH} "/opt/ffmpeg/lib/pkgconfig")
 pkg_search_module(PC_AVFORMAT REQUIRED libavformat)
 pkg_search_module(PC_AVCODEC REQUIRED libavcodec)
 pkg_search_module(PC_AVUTIL REQUIRED libavutil)
@@ -59,6 +59,7 @@ target_link_libraries(
   ${PC_AVCODEC_LDFLAGS}
   ${PC_AVUTIL_LDFLAGS}
   ${PC_SWSCALE_LDFLAGS}
+  v4l2
 )
 
 install(TARGETS video_dec_node

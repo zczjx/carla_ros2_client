@@ -42,6 +42,8 @@ void PixFmtConvert::initConvertCtx(std::shared_ptr<AVFrame> src_frame)
                         m_dstFrame->width, m_dstFrame->height,
                         (enum AVPixelFormat)  m_dstFrame->format, 1);
 
+    std::cerr << "image buffer size: " << std::to_string(ret) << std::endl;
+
     /* buffer is going to be written to rawvideo file, no alignment */
     if (ret < 0)
     {

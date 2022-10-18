@@ -13,7 +13,7 @@ class DebugViz(Node):
     def __init__(self):
         super().__init__('DebugViz')
         self._surface = None
-        self.sub = self.create_subscription(Image, '/carla/video_enc/image_h264', self.on_view_image, qos_profile=10)
+        self.sub = self.create_subscription(Image, '/carla/video_dec/image_bgra', self.on_view_image, qos_profile=10)
 
     def h264_msg_info(self, image_msg):
         self.get_logger().info('image_msg.header.frame_id: [%s]' % image_msg.header.frame_id)
