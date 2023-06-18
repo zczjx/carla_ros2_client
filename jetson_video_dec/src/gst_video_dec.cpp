@@ -133,7 +133,7 @@ GstFlowReturn gstVideoDec::getFrame(std::shared_ptr<sensor_msgs::msg::Image> out
     }
 
     std::shared_ptr<GstBuffer> buffer = m_gstSinkBuf.front();
-    m_gstSinkBuf.pop();
+    m_gstSinkBuf.pop_front();
     gstBuffertoSensorMsg(buffer, outFrame);
 
     return GST_FLOW_OK;
@@ -149,7 +149,7 @@ std::shared_ptr<GstBuffer> gstVideoDec::sensorMsgtoGstBuffer(std::shared_ptr<sen
     return buffer;
 }
 
-int gstBuffertoSensorMsg(std::shared_ptr<GstBuffer> buffer, std::shared_ptr<sensor_msgs::msg::Image> image)
+int gstVideoDec::gstBuffertoSensorMsg(std::shared_ptr<GstBuffer> buffer, std::shared_ptr<sensor_msgs::msg::Image> image)
 {
     GstMapInfo map;
 
@@ -159,6 +159,7 @@ int gstBuffertoSensorMsg(std::shared_ptr<GstBuffer> buffer, std::shared_ptr<sens
     {
         return -1;
     }
+    image->data.clear();
     image->data.insert(image->data.begin(), map.data[0], (map.data[0] + map.size));
     gst_buffer_unmap (buffer.get(), &map);
 

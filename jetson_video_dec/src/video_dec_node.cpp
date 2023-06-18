@@ -25,6 +25,7 @@ public:
 
     auto callback = [this](const std::shared_ptr<sensor_msgs::msg::Image> image){ subCallback(image); };
     m_sub = create_subscription<sensor_msgs::msg::Image>("/carla/video_enc/image_h264", 10, callback);
+    m_decoder.start_gst_pipeline();
   }
 
   ~VideoDecNode();
@@ -36,12 +37,6 @@ private:
 
   std::queue<std::shared_ptr<sensor_msgs::msg::Image>> m_buffer;
   std::mutex m_bufferMutex;
-
-  std::queue<std::shared_ptr<sensor_msgs::msg::Image>> m_decodeBuffer;
-  std::mutex m_decodeBufferMutex;
-
-  std::queue<std::shared_ptr<sensor_msgs::msg::Image>> m_rgbaPixelBuffer;
-  std::mutex m_pixelBufferMutex;
 
   std::unique_ptr<std::thread> m_pubThread;
   std::unique_ptr<std::thread> m_decodeThread;
@@ -64,11 +59,9 @@ void VideoDecNode::doDecode()
       std::lock_guard<std::mutex> lock(m_bufferMutex);
       // RCLCPP_INFO(this->get_logger(), "m_buffer.size: [%d]", m_buffer.size());
       tmp_image = m_buffer.front();
-      m_buffer.pop();
+      m_buffer.pop_front();
+      m_decoder->pushFrame(tmp_image, tmp_image->step);
     }
-    auto image_msg = std::make_shared<sensor_msgs::msg::Image>(*tmp_image);
-    m_decoder->parseFrame(image_msg, image_msg->step);
-    m_decoder->decode(m_decodeBuffer);
   }
 
 }
@@ -76,15 +69,17 @@ void VideoDecNode::doDecode()
 void VideoDecNode::doPublish()
 {
   RCLCPP_INFO(this->get_logger(), "video doPublish thread started");
+  auto bgra_msg = std::make_shared<sensor_msgs::msg::Image>();
 
   while (!m_stopSignal && rclcpp::ok())
   {
-    if(m_decodeBuffer.empty())
-      continue;
+    bgra_msg->data.clear();
 
-    auto bgra_msg = m_decodeBuffer.front();
-    m_decodeBuffer.pop();
-    m_pub->publish(std::move(*bgra_msg));
+    if(GST_FLOW_OK == m_decoder->getFrame(bgra_msg))
+    {
+      m_pub->publish(std::move(*bgra_msg));
+    }
+
   }
 }
 
