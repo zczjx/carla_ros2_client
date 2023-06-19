@@ -25,7 +25,7 @@ public:
 
     auto callback = [this](const std::shared_ptr<sensor_msgs::msg::Image> image){ subCallback(image); };
     m_sub = create_subscription<sensor_msgs::msg::Image>("/carla/video_enc/image_h264", 10, callback);
-    m_decoder.start_gst_pipeline();
+    m_decoder->start_gst_pipeline();
   }
 
   ~VideoDecNode();
@@ -59,7 +59,7 @@ void VideoDecNode::doDecode()
       std::lock_guard<std::mutex> lock(m_bufferMutex);
       // RCLCPP_INFO(this->get_logger(), "m_buffer.size: [%d]", m_buffer.size());
       tmp_image = m_buffer.front();
-      m_buffer.pop_front();
+      m_buffer.pop();
       m_decoder->pushFrame(tmp_image, tmp_image->step);
     }
   }

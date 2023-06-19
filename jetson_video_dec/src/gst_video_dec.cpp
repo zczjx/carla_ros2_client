@@ -5,6 +5,32 @@
 namespace video_dec_node
 {
 
+extern "C"{
+static GstFlowReturn gstSinkSample(GstElement *appsink, gpointer udata)
+{
+    GstSample *sample;
+    GstFlowReturn ret = GST_FLOW_OK;
+
+    /* Retrieve the buffer */
+    g_signal_emit_by_name(appsink, "pull-sample", &sample);
+
+    if (sample)
+    {
+        // std::lock_guard<std::mutex> lock(m_sinkBufMutex);
+        /* The only thing we do in this example is print a * to indicate a received buffer */
+        std::shared_ptr<GstBuffer> buffer;
+        buffer.reset(gst_sample_get_buffer(sample));
+        // m_gstSinkBuf.push(buffer);
+
+        std::cerr << "appsink get new_sample data!" << std::endl;
+        gst_sample_unref(sample);
+        return GST_FLOW_OK;
+    }
+
+    return GST_FLOW_ERROR;
+}
+}
+
 gstVideoDec::gstVideoDec()
 {
     int ret;
@@ -76,30 +102,6 @@ gstVideoDec::gstVideoDec()
 
 }
 
-GstFlowReturn gstVideoDec::gstSinkSample(GstElement *appsink, void *data)
-{
-    GstSample *sample;
-    GstFlowReturn ret = GST_FLOW_OK;
-
-    /* Retrieve the buffer */
-    g_signal_emit_by_name(appsink, "pull-sample", &sample);
-
-    if (sample)
-    {
-        std::lock_guard<std::mutex> lock(m_sinkBufMutex);
-        /* The only thing we do in this example is print a * to indicate a received buffer */
-        std::shared_ptr<GstBuffer> buffer;
-        buffer.reset(gst_sample_get_buffer(sample));
-        m_gstSinkBuf.push(buffer);
-
-        std::cerr << "appsink get new_sample data!" << std::endl;
-        gst_sample_unref(sample);
-        return GST_FLOW_OK;
-    }
-
-    return GST_FLOW_ERROR;
-}
-
 GstFlowReturn gstVideoDec::pushFrame(std::shared_ptr<sensor_msgs::msg::Image> image_msg, int pts_idx)
 {
     GstFlowReturn ret;
@@ -133,7 +135,7 @@ GstFlowReturn gstVideoDec::getFrame(std::shared_ptr<sensor_msgs::msg::Image> out
     }
 
     std::shared_ptr<GstBuffer> buffer = m_gstSinkBuf.front();
-    m_gstSinkBuf.pop_front();
+    m_gstSinkBuf.pop();
     gstBuffertoSensorMsg(buffer, outFrame);
 
     return GST_FLOW_OK;
@@ -144,7 +146,7 @@ std::shared_ptr<GstBuffer> gstVideoDec::sensorMsgtoGstBuffer(std::shared_ptr<sen
     auto buffer = std::make_shared<GstBuffer>();
 
     buffer.reset(gst_buffer_new_and_alloc(image->data.size()));
-    gst_buffer_fill(buffer.get(), 0, image->data.data(), image->d0ata.size());
+    gst_buffer_fill(buffer.get(), 0, image->data.data(), image->data.size());
 
     return buffer;
 }
@@ -173,7 +175,7 @@ int gstVideoDec::start_gst_pipeline()
     if (ret == GST_STATE_CHANGE_FAILURE)
     {
         std::cerr << "Unable to set the pipeline to the playing state." << std::endl;
-        gst_object_unref (run_pipeline.get());
+        gst_object_unref (m_gst_pipeline.get());
         return -1;
     }
 
@@ -181,7 +183,7 @@ int gstVideoDec::start_gst_pipeline()
 
 void gstVideoDec::stop_gst_pipeline()
 {
-    m_gst_bus.reset(gst_element_get_bus(m_gst_pipeline));
+    m_gst_bus.reset(gst_element_get_bus(m_gst_pipeline.get()));
     m_gst_msg.reset(gst_bus_timed_pop_filtered (m_gst_bus.get(), GST_CLOCK_TIME_NONE, (GstMessageType) (GST_MESSAGE_ERROR | GST_MESSAGE_EOS)));
     if(m_gst_msg != nullptr)
         gst_message_unref(m_gst_msg.get());

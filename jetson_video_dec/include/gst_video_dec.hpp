@@ -41,7 +41,6 @@ private:
     std::queue<std::shared_ptr<GstBuffer>> m_gstSinkBuf;
     std::mutex m_sinkBufMutex;
 
-    GstFlowReturn gstSinkSample(GstElement *appsink, void *data);
     std::shared_ptr<GstBuffer> sensorMsgtoGstBuffer(std::shared_ptr<sensor_msgs::msg::Image> image);
     int gstBuffertoSensorMsg(std::shared_ptr<GstBuffer> buffer, std::shared_ptr<sensor_msgs::msg::Image> image);
 

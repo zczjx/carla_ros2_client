@@ -22,6 +22,7 @@ pkg_search_module(PC_GST_APP REQUIRED gstreamer-app-1.0) # `pkg-config --cflags 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 add_executable(
   video_dec_node
