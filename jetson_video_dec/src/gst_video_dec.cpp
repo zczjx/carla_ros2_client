@@ -6,21 +6,22 @@ namespace video_dec_node
 {
 
 extern "C"{
-static GstFlowReturn gstSinkSample(GstElement *appsink, gpointer udata)
+static GstFlowReturn gstSinkSample(GstElement *appsink, gpointer sinkBufferQueue)
 {
     GstSample *sample;
     GstFlowReturn ret = GST_FLOW_OK;
+    struct BufferQueue *ptr_buffer_queue = (struct BufferQueue *) sinkBufferQueue;
 
     /* Retrieve the buffer */
     g_signal_emit_by_name(appsink, "pull-sample", &sample);
 
     if (sample)
     {
-        // std::lock_guard<std::mutex> lock(m_sinkBufMutex);
+        std::lock_guard<std::mutex> lock(ptr_buffer_queue->m_sinkBufMutex);
         /* The only thing we do in this example is print a * to indicate a received buffer */
         std::shared_ptr<GstBuffer> buffer;
         buffer.reset(gst_sample_get_buffer(sample));
-        // m_gstSinkBuf.push(buffer);
+        ptr_buffer_queue->m_gstSinkBuf.push(buffer);
 
         std::cerr << "appsink get new_sample data!" << std::endl;
         gst_sample_unref(sample);
@@ -98,7 +99,7 @@ gstVideoDec::gstVideoDec()
     g_object_set(G_OBJECT (m_gst_appsrc.get()), "is-live", TRUE, "format", GST_FORMAT_TIME, NULL);
     /* setup appsink */
     g_object_set(m_gst_appsink.get(), "emit-signals", TRUE, NULL);
-    g_signal_connect(m_gst_appsink.get(), "new-sample", G_CALLBACK(gstSinkSample), NULL);
+    g_signal_connect(m_gst_appsink.get(), "new-sample", G_CALLBACK(gstSinkSample), &m_sinkBufferQueue);
 
 }
 
@@ -126,16 +127,16 @@ GstFlowReturn gstVideoDec::pushFrame(std::shared_ptr<sensor_msgs::msg::Image> im
 
 GstFlowReturn gstVideoDec::getFrame(std::shared_ptr<sensor_msgs::msg::Image> outFrame)
 {
-    std::lock_guard<std::mutex> lock(m_sinkBufMutex);
+    std::lock_guard<std::mutex> lock(m_sinkBufferQueue.m_sinkBufMutex);
 
-    if(m_gstSinkBuf.empty())
+    if(m_sinkBufferQueue.m_gstSinkBuf.empty())
     {
         std::cerr << "m_gstSinkBuf is empty!" << std::endl;
         return GST_FLOW_CUSTOM_ERROR;
     }
 
-    std::shared_ptr<GstBuffer> buffer = m_gstSinkBuf.front();
-    m_gstSinkBuf.pop();
+    std::shared_ptr<GstBuffer> buffer = m_sinkBufferQueue.m_gstSinkBuf.front();
+    m_sinkBufferQueue.m_gstSinkBuf.pop();
     gstBuffertoSensorMsg(buffer, outFrame);
 
     return GST_FLOW_OK;

@@ -12,6 +12,12 @@
 namespace video_dec_node
 {
 
+struct BufferQueue
+{
+    std::queue<std::shared_ptr<GstBuffer>> m_gstSinkBuf;
+    std::mutex m_sinkBufMutex;
+};
+
 class gstVideoDec
 {
 public:
@@ -38,8 +44,7 @@ private:
     std::shared_ptr<GstElement> m_gst_nvv4l2decoder;
     std::shared_ptr<GstElement> m_gst_appsink;
 
-    std::queue<std::shared_ptr<GstBuffer>> m_gstSinkBuf;
-    std::mutex m_sinkBufMutex;
+    struct BufferQueue m_sinkBufferQueue;
 
     std::shared_ptr<GstBuffer> sensorMsgtoGstBuffer(std::shared_ptr<sensor_msgs::msg::Image> image);
     int gstBuffertoSensorMsg(std::shared_ptr<GstBuffer> buffer, std::shared_ptr<sensor_msgs::msg::Image> image);
