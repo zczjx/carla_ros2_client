@@ -14,7 +14,7 @@ namespace video_dec_node
 
 struct BufferQueue
 {
-    std::queue<std::shared_ptr<GstBuffer>> m_gstSinkBuf;
+    std::queue<GstSample *> m_gstSinkBuf;
     std::mutex m_sinkBufMutex;
 };
 
@@ -46,8 +46,8 @@ private:
 
     struct BufferQueue m_sinkBufferQueue;
 
-    std::shared_ptr<GstBuffer> sensorMsgtoGstBuffer(std::shared_ptr<sensor_msgs::msg::Image> image);
-    int gstBuffertoSensorMsg(std::shared_ptr<GstBuffer> buffer, std::shared_ptr<sensor_msgs::msg::Image> image);
+    GstBuffer* sensorMsgtoGstBuffer(std::shared_ptr<sensor_msgs::msg::Image> image);
+    int gstBuffertoSensorMsg(GstBuffer *buffer, std::shared_ptr<sensor_msgs::msg::Image> image);
 
 };
 

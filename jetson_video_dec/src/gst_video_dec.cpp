@@ -2,10 +2,12 @@
 #include "gst_video_dec.hpp"
 #include <iostream>
 
+#include <gst/gst.h>
 namespace video_dec_node
 {
 
 extern "C"{
+
 static GstFlowReturn gstSinkSample(GstElement *appsink, gpointer sinkBufferQueue)
 {
     GstSample *sample;
@@ -19,30 +21,25 @@ static GstFlowReturn gstSinkSample(GstElement *appsink, gpointer sinkBufferQueue
     {
         std::lock_guard<std::mutex> lock(ptr_buffer_queue->m_sinkBufMutex);
         /* The only thing we do in this example is print a * to indicate a received buffer */
-        std::shared_ptr<GstBuffer> buffer;
-        buffer.reset(gst_sample_get_buffer(sample));
-        ptr_buffer_queue->m_gstSinkBuf.push(buffer);
+        // std::shared_ptr<GstBuffer> buffer;
+        // buffer.reset(gst_sample_get_buffer(sample));
+        ptr_buffer_queue->m_gstSinkBuf.push(sample);
 
-        std::cerr << "appsink get new_sample data!" << std::endl;
-        gst_sample_unref(sample);
+        std::cerr << "gstSinkSample: appsink get new_sample data!" << std::endl;
+        // gst_sample_unref(sample);
         return GST_FLOW_OK;
     }
 
     return GST_FLOW_ERROR;
 }
+
 }
 
 gstVideoDec::gstVideoDec()
 {
     int ret;
 
-    m_gst_pipeline.reset(gst_pipeline_new ("run_pipeline"));
-
-    if (nullptr == m_gst_pipeline)
-    {
-        std::cerr << "m_gst_pipeline: " << " could not be created" << std::endl;
-        exit(1);
-    }
+    gst_init(NULL, NULL);
 
     m_gst_appsrc.reset(gst_element_factory_make("appsrc", "m_gst_appsrc"));
 
@@ -84,6 +81,14 @@ gstVideoDec::gstVideoDec()
         exit(1);
     }
 
+    m_gst_pipeline.reset(gst_pipeline_new ("run_pipeline"));
+
+    if (nullptr == m_gst_pipeline)
+    {
+        std::cerr << "m_gst_pipeline: " << " could not be created" << std::endl;
+        exit(1);
+    }
+
     gst_bin_add_many(GST_BIN(m_gst_pipeline.get()), m_gst_appsrc.get(), m_gst_queue.get(),
         m_gst_h264parse.get(), m_gst_nvv4l2decoder.get(), m_gst_appsink.get(), NULL);
 
@@ -100,20 +105,21 @@ gstVideoDec::gstVideoDec()
     /* setup appsink */
     g_object_set(m_gst_appsink.get(), "emit-signals", TRUE, NULL);
     g_signal_connect(m_gst_appsink.get(), "new-sample", G_CALLBACK(gstSinkSample), &m_sinkBufferQueue);
+    std::cerr << "gstVideoDec: " << " pipeline build successfully!" << std::endl;
 
 }
 
 GstFlowReturn gstVideoDec::pushFrame(std::shared_ptr<sensor_msgs::msg::Image> image_msg, int pts_idx)
 {
     GstFlowReturn ret;
-    std::shared_ptr<GstBuffer> buffer = sensorMsgtoGstBuffer(image_msg);
+    GstBuffer *buffer = sensorMsgtoGstBuffer(image_msg);
 
     /* Set its timestamp and duration */
-    GST_BUFFER_PTS(buffer.get()) = pts_idx;
+    GST_BUFFER_PTS(buffer) = pts_idx;
 
     // Push the buffer into AppSrc
-    g_signal_emit_by_name(m_gst_appsrc.get(), "push-buffer", buffer.get(), &ret);
-    g_printerr("m_gst_appsrc put new data!\n");
+    g_signal_emit_by_name(m_gst_appsrc.get(), "push-buffer", buffer, &ret);
+    gst_buffer_unref(buffer);
 
     if (ret != GST_FLOW_OK)
     {
@@ -131,32 +137,34 @@ GstFlowReturn gstVideoDec::getFrame(std::shared_ptr<sensor_msgs::msg::Image> out
 
     if(m_sinkBufferQueue.m_gstSinkBuf.empty())
     {
-        std::cerr << "m_gstSinkBuf is empty!" << std::endl;
+        // std::cerr << "m_gstSinkBuf is empty!" << std::endl;
         return GST_FLOW_CUSTOM_ERROR;
     }
 
-    std::shared_ptr<GstBuffer> buffer = m_sinkBufferQueue.m_gstSinkBuf.front();
+    GstSample *sample = m_sinkBufferQueue.m_gstSinkBuf.front();
     m_sinkBufferQueue.m_gstSinkBuf.pop();
+    GstBuffer *buffer = gst_sample_get_buffer(sample);
     gstBuffertoSensorMsg(buffer, outFrame);
+    gst_sample_unref(sample);
 
     return GST_FLOW_OK;
 }
 
-std::shared_ptr<GstBuffer> gstVideoDec::sensorMsgtoGstBuffer(std::shared_ptr<sensor_msgs::msg::Image> image)
+GstBuffer* gstVideoDec::sensorMsgtoGstBuffer(std::shared_ptr<sensor_msgs::msg::Image> image)
 {
-    auto buffer = std::make_shared<GstBuffer>();
+    GstBuffer *buffer;
 
-    buffer.reset(gst_buffer_new_and_alloc(image->data.size()));
-    gst_buffer_fill(buffer.get(), 0, image->data.data(), image->data.size());
+    buffer = gst_buffer_new_and_alloc(image->data.size());
+    gst_buffer_fill(buffer, 0, image->data.data(), image->data.size());
 
     return buffer;
 }
 
-int gstVideoDec::gstBuffertoSensorMsg(std::shared_ptr<GstBuffer> buffer, std::shared_ptr<sensor_msgs::msg::Image> image)
+int gstVideoDec::gstBuffertoSensorMsg(GstBuffer *buffer, std::shared_ptr<sensor_msgs::msg::Image> image)
 {
     GstMapInfo map;
 
-    gst_buffer_map (buffer.get(), &map, GST_MAP_READ);
+    gst_buffer_map (buffer, &map, GST_MAP_READ);
 
     if((NULL == map.data) || (map.size <= 0))
     {
@@ -164,7 +172,7 @@ int gstVideoDec::gstBuffertoSensorMsg(std::shared_ptr<GstBuffer> buffer, std::sh
     }
     image->data.clear();
     image->data.insert(image->data.begin(), map.data[0], (map.data[0] + map.size));
-    gst_buffer_unmap (buffer.get(), &map);
+    gst_buffer_unmap (buffer, &map);
 
     return 0;
 }

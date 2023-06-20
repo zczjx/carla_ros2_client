@@ -60,6 +60,13 @@ void VideoDecNode::doDecode()
       // RCLCPP_INFO(this->get_logger(), "m_buffer.size: [%d]", m_buffer.size());
       tmp_image = m_buffer.front();
       m_buffer.pop();
+      /**
+      RCLCPP_INFO(this->get_logger(), "image->height [%d]", tmp_image->height);
+      RCLCPP_INFO(this->get_logger(), "image->width [%d]", tmp_image->width);
+      RCLCPP_INFO(this->get_logger(), "image->encoding [%s]", tmp_image->encoding.c_str());
+      RCLCPP_INFO(this->get_logger(), "image->is_bigendian [%d]", tmp_image->is_bigendian);
+      RCLCPP_INFO(this->get_logger(), "image->step [%d]", tmp_image->step);
+      **/
       m_decoder->pushFrame(tmp_image, tmp_image->step);
     }
   }
