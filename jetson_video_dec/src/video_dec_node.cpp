@@ -5,6 +5,7 @@
 
 #include <queue>
 #include <thread>
+#include <chrono>
 
 namespace video_dec_node
 {
@@ -49,6 +50,7 @@ private:
 void VideoDecNode::doDecode()
 {
   RCLCPP_INFO(this->get_logger(), "video doDecode thread started");
+  static int32_t cnt = 0;
 
   while (!m_stopSignal && rclcpp::ok())
   {
@@ -67,7 +69,11 @@ void VideoDecNode::doDecode()
       RCLCPP_INFO(this->get_logger(), "image->is_bigendian [%d]", tmp_image->is_bigendian);
       RCLCPP_INFO(this->get_logger(), "image->step [%d]", tmp_image->step);
       **/
+
+      cnt++;
+      RCLCPP_INFO(this->get_logger(), "doDecode frames cnt: %d", cnt);
       m_decoder->pushFrame(tmp_image, tmp_image->step);
+
     }
   }
 
@@ -76,15 +82,17 @@ void VideoDecNode::doDecode()
 void VideoDecNode::doPublish()
 {
   RCLCPP_INFO(this->get_logger(), "video doPublish thread started");
-  auto bgra_msg = std::make_shared<sensor_msgs::msg::Image>();
+  static int32_t cnt = 0;
 
   while (!m_stopSignal && rclcpp::ok())
   {
-    bgra_msg->data.clear();
+    std::shared_ptr<sensor_msgs::msg::Image> bgra_msg = m_decoder->getFrame();
 
-    if(GST_FLOW_OK == m_decoder->getFrame(bgra_msg))
+    if(nullptr != bgra_msg)
     {
       m_pub->publish(std::move(*bgra_msg));
+      cnt++;
+      RCLCPP_INFO(this->get_logger(), "doPublish frames cnt: %d", cnt);
     }
 
   }
