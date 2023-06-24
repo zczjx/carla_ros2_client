@@ -1,105 +1,11 @@
 #include "rclcpp/rclcpp.hpp"
 #include "gst_video_dec.hpp"
+#include "gst_c_callback.hpp"
 #include <iostream>
 
 #include <gst/gst.h>
 namespace video_dec_node
 {
-
-extern "C"{
-
-static GstFlowReturn gstSinkSample(GstElement *appsink, gpointer sinkBufferQueue)
-{
-    GstSample *sample = NULL;
-    GstFlowReturn ret = GST_FLOW_OK;
-    struct BufferQueue *ptr_buffer_queue = (struct BufferQueue *) sinkBufferQueue;
-
-    /* Retrieve the buffer */
-    g_signal_emit_by_name(appsink, "pull-sample", &sample);
-
-    if (sample)
-    {
-        std::lock_guard<std::mutex> lock(ptr_buffer_queue->m_sinkBufMutex);
-        GstBuffer *buffer = gst_sample_get_buffer(sample);
-        GstMapInfo map;
-        /* The only thing we do in this example is print a * to indicate a received buffer */
-        // std::shared_ptr<GstBuffer> buffer;
-        // buffer.reset(gst_sample_get_buffer(sample));
-        g_printerr ("buffer pts: %ld\n", GST_BUFFER_PTS(buffer));
-        g_printerr ("buffer duration: %ld\n", GST_BUFFER_DURATION(buffer));
-
-        gst_buffer_map (buffer, &map, GST_MAP_READ);
-
-        g_printerr ("output buffer map.size: %ld\n", map.size);
-        g_printerr ("output buffer map.maxsize: %ld\n", map.maxsize);
-        std::shared_ptr<sensor_msgs::msg::Image> bgra_msg = std::make_shared<sensor_msgs::msg::Image>();
-        // gstBuffertoSensorMsg(buffer, bgra_msg);
-        bgra_msg->header.frame_id = "video_dec/image_bgra";
-        bgra_msg->encoding = "bgra8";
-        bgra_msg->width = 800;
-        bgra_msg->height = 600;
-        bgra_msg->step = GST_BUFFER_PTS(buffer);
-        bgra_msg->data.clear();
-        bgra_msg->data.insert(bgra_msg->data.end(), map.data, (map.data + map.size));
-        g_printerr ("bgra_msg->data.size(): %ld\n", bgra_msg->data.size());
-
-
-        gst_buffer_unmap(buffer, &map);
-        // gst_buffer_unref(buffer);
-        gst_sample_unref(sample);
-        ptr_buffer_queue->m_SinkBuf.push(bgra_msg);
-
-        std::cerr << "gstSinkSample: appsink get new_sample data!" << std::endl;
-        return GST_FLOW_OK;
-    }
-
-    return GST_FLOW_ERROR;
-}
-
-static gboolean print_field (GQuark field, const GValue * value, gpointer pfx)
-{
-  gchar *str = gst_value_serialize (value);
-
-  g_print ("%s  %15s: %s\n", (gchar *) pfx, g_quark_to_string (field), str);
-  g_free (str);
-  return TRUE;
-}
-
-static void print_caps(const GstCaps * caps, const gchar * pfx)
-{
-  guint i;
-
-  g_return_if_fail (caps != NULL);
-
-  if (gst_caps_is_any (caps))
-  {
-    g_print ("%sANY\n", pfx);
-    return;
-  }
-
-  if (gst_caps_is_empty (caps))
-  {
-    g_print ("%sEMPTY\n", pfx);
-    return;
-  }
-
-  for(i = 0; i < gst_caps_get_size (caps); i++)
-  {
-    GstStructure *structure = gst_caps_get_structure (caps, i);
-
-    g_print ("%s%s\n", pfx, gst_structure_get_name (structure));
-    gst_structure_foreach (structure, print_field, (gpointer) pfx);
-  }
-}
-
-static gboolean my_bus_callback(GstBus *bus, GstMessage *message, gpointer data)
-{
-    g_printerr("Got %s message\n", GST_MESSAGE_TYPE_NAME (message));
-    return TRUE;
-}
-
-
-}
 
 gstVideoDec::gstVideoDec()
 {
@@ -229,7 +135,7 @@ std::shared_ptr<sensor_msgs::msg::Image> gstVideoDec::getFrame()
         // std::this_thread::sleep_for(std::chrono::milliseconds(10000));
         return nullptr;
     }
-    printVideoOutputFormat(m_gst_nvvidconv.get(), "src");
+    // printVideoOutputFormat(m_gst_nvvidconv.get(), "src");
     std::shared_ptr<sensor_msgs::msg::Image> bgra_msg = m_sinkBufferQueue.m_SinkBuf.front();
     m_sinkBufferQueue.m_SinkBuf.pop();
 
@@ -262,40 +168,10 @@ void gstVideoDec::printVideoOutputFormat(GstElement *element, gchar *padName)
 
 }
 
-GstBuffer* gstVideoDec::sensorMsgtoGstBuffer(std::shared_ptr<sensor_msgs::msg::Image> image)
-{
-    GstBuffer *buffer;
-
-    buffer = gst_buffer_new_and_alloc(image->data.size());
-    gst_buffer_fill(buffer, 0, image->data.data(), image->data.size());
-    // g_printerr("input push data size: %ld\n", image->data.size());
-
-    return buffer;
-}
-
-int gstVideoDec::gstBuffertoSensorMsg(GstBuffer *buffer, std::shared_ptr<sensor_msgs::msg::Image> image)
-{
-    GstMapInfo map;
-
-    gst_buffer_map (buffer, &map, GST_MAP_READ);
-
-    if((NULL == map.data) || (map.size <= 0))
-    {
-        return -1;
-    }
-    image->data.clear();
-    image->data.insert(image->data.begin(), map.data[0], (map.data[0] + map.size));
-    g_printerr ("output buffer map.size: %ld\n", map.size);
-    g_printerr ("output buffer map.maxsize: %ld\n", map.maxsize);
-    gst_buffer_unmap (buffer, &map);
-
-    return 0;
-}
-
 int gstVideoDec::start_gst_pipeline()
 {
     m_gst_bus.reset(gst_element_get_bus(m_gst_pipeline.get()));
-    m_gst_bus_watch_id = gst_bus_add_watch (m_gst_bus.get(), my_bus_callback, NULL);
+    m_gst_bus_watch_id = gst_bus_add_watch (m_gst_bus.get(), gst_bus_callback, NULL);
     GstStateChangeReturn ret = gst_element_set_state(m_gst_pipeline.get(), GST_STATE_PLAYING);
 
     if (ret == GST_STATE_CHANGE_FAILURE)
@@ -304,14 +180,12 @@ int gstVideoDec::start_gst_pipeline()
         gst_object_unref (m_gst_pipeline.get());
         return -1;
     }
+    printVideoOutputFormat(m_gst_nvvidconv.get(), "src");
 
 }
 
 void gstVideoDec::stop_gst_pipeline()
 {
-    // m_gst_msg.reset(gst_bus_timed_pop_filtered (m_gst_bus.get(), GST_CLOCK_TIME_NONE, (GstMessageType) (GST_MESSAGE_ERROR | GST_MESSAGE_EOS)));
-    // if(m_gst_msg != nullptr)
-    //    gst_message_unref(m_gst_msg.get());
     gst_object_unref (m_gst_bus.get());
     gst_element_set_state (m_gst_pipeline.get(), GST_STATE_NULL);
     gst_object_unref (m_gst_pipeline.get());

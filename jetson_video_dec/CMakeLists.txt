@@ -28,6 +28,7 @@ add_executable(
   video_dec_node
   src/video_dec_node.cpp
   src/gst_video_dec.cpp
+  src/gst_c_callback.cpp
 )
 
 target_include_directories(video_dec_node PUBLIC

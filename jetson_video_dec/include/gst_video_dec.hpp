@@ -1,3 +1,6 @@
+#ifndef GST_VIDEO_DEC_HPP_
+#define GST_VIDEO_DEC_HPP_
+
 #include <gst/gst.h>
 
 #include <memory>
@@ -8,16 +11,10 @@
 #include <queue>
 
 #include "sensor_msgs/msg/image.hpp"
+#include "gst_c_callback.hpp"
 
 namespace video_dec_node
 {
-
-struct BufferQueue
-{
-    std::queue<std::shared_ptr<sensor_msgs::msg::Image>> m_SinkBuf;
-    std::mutex m_sinkBufMutex;
-};
-
 class gstVideoDec
 {
 public:
@@ -48,9 +45,8 @@ private:
 
     struct BufferQueue m_sinkBufferQueue;
 
-    GstBuffer* sensorMsgtoGstBuffer(std::shared_ptr<sensor_msgs::msg::Image> image);
-    int gstBuffertoSensorMsg(GstBuffer *buffer, std::shared_ptr<sensor_msgs::msg::Image> image);
-
 };
 
 }
+
+#endif //GST_VIDEO_DEC_HPP_

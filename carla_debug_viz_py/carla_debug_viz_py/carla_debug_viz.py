@@ -6,6 +6,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image
 from threading import Thread
 import pygame, numpy
+import time
 
 
 class DebugViz(Node):
@@ -55,6 +56,7 @@ def main(args=None):
         spin_thread.start()
 
         while rclpy.ok():
+            time.sleep(0.033)
             if debug_node.render(display):
                 return
             # print('pygame.display.flip')
