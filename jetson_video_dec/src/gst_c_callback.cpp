@@ -4,11 +4,35 @@
 extern "C" {
 #endif
 
+GstStructure* gstGetPadCapStructure(GstElement *element, gchar *padName)
+{
+  GstPad *pad = NULL;
+  GstCaps *caps = NULL;
+  gchar * pad_name = padName;
+
+  /* Retrieve pad */
+  pad = gst_element_get_static_pad (element, pad_name);
+  if (!pad)
+  {
+    g_printerr ("Could not retrieve pad '%s'\n", pad_name);
+    return NULL;
+  }
+
+  /* Retrieve negotiated caps (or acceptable caps if negotiation is not finished yet) */
+  caps = gst_pad_get_current_caps (pad);
+  if (!caps)
+    caps = gst_pad_query_caps (pad, NULL);
+
+  return gst_caps_get_structure (caps, 0);
+
+}
+
 GstFlowReturn gstSinkSample(GstElement *appsink, gpointer sinkBufferQueue)
 {
     GstSample *sample = NULL;
     GstFlowReturn ret = GST_FLOW_OK;
     struct BufferQueue *ptr_buffer_queue = (struct BufferQueue *) sinkBufferQueue;
+    GstStructure *structure = NULL;
 
     /* Retrieve the buffer */
     g_signal_emit_by_name(appsink, "pull-sample", &sample);
@@ -16,6 +40,8 @@ GstFlowReturn gstSinkSample(GstElement *appsink, gpointer sinkBufferQueue)
     if (sample)
     {
         std::lock_guard<std::mutex> lock(ptr_buffer_queue->m_sinkBufMutex);
+        // printVideoOutputFormat(appsink, "sink");
+
         GstBuffer *buffer = gst_sample_get_buffer(sample);
         std::shared_ptr<sensor_msgs::msg::Image> bgra_msg = std::make_shared<sensor_msgs::msg::Image>();
 
@@ -26,10 +52,20 @@ GstFlowReturn gstSinkSample(GstElement *appsink, gpointer sinkBufferQueue)
         }
 
         bgra_msg->header.frame_id = "video_dec/image_bgra";
-        bgra_msg->encoding = "bgra8";
-        bgra_msg->width = 800;
-        bgra_msg->height = 600;
         bgra_msg->step = GST_BUFFER_PTS(buffer);
+        structure = gstGetPadCapStructure(appsink, "sink");
+
+        if(NULL != structure)
+        {
+          gint width, height;
+
+          gst_structure_get_int(structure, "width", &width);
+          gst_structure_get_int(structure, "height", &height);
+          bgra_msg->width = width;
+          bgra_msg->height = height;
+          bgra_msg->encoding = gst_structure_get_string(structure, "format");
+        }
+
         gst_sample_unref(sample);
         ptr_buffer_queue->m_SinkBuf.push(bgra_msg);
         return GST_FLOW_OK;
@@ -70,9 +106,42 @@ void print_caps(const GstCaps * caps, const gchar * pfx)
   {
     GstStructure *structure = gst_caps_get_structure (caps, i);
 
-    g_print ("%s%s\n", pfx, gst_structure_get_name (structure));
-    gst_structure_foreach (structure, print_field, (gpointer) pfx);
+    g_print ("i: %d %s%s\n", i, pfx, gst_structure_get_name (structure));
+    gint width, height;
+    gst_structure_get_int(structure, "width", &width);
+    gst_structure_get_int(structure, "height", &height);
+    const gchar *format = gst_structure_get_string(structure, "format");
+    g_print ("%s width: %d\n", pfx, width);
+    g_print ("%s height: %d\n", pfx, height);
+    g_print ("%s format: %s\n", pfx, format);
+    //gst_structure_foreach (structure, print_field, (gpointer) pfx);
   }
+}
+
+void printVideoOutputFormat(GstElement *element, gchar *padName)
+{
+    GstPad *pad = NULL;
+    GstCaps *caps = NULL;
+    gchar * pad_name = padName;
+
+    /* Retrieve pad */
+    pad = gst_element_get_static_pad (element, pad_name);
+    if (!pad) {
+        g_printerr ("Could not retrieve pad '%s'\n", pad_name);
+        return;
+    }
+
+    /* Retrieve negotiated caps (or acceptable caps if negotiation is not finished yet) */
+    caps = gst_pad_get_current_caps (pad);
+    if (!caps)
+        caps = gst_pad_query_caps (pad, NULL);
+
+    /* Print and free */
+    g_print ("Caps for the %s pad:\n", pad_name);
+    print_caps (caps, "      ");
+    gst_caps_unref (caps);
+    gst_object_unref (pad);
+
 }
 
 gboolean gst_bus_callback(GstBus *bus, GstMessage *message, gpointer data)
@@ -108,7 +177,6 @@ GstFlowReturn gstBuffertoSensorMsg(GstBuffer *buffer, std::shared_ptr<sensor_msg
 
     return GST_FLOW_OK;
 }
-
 
 #ifdef __cplusplus
 } //extern C

@@ -30,11 +30,15 @@ extern gboolean print_field (GQuark field, const GValue * value, gpointer pfx);
 
 extern void print_caps(const GstCaps * caps, const gchar * pfx);
 
+extern void printVideoOutputFormat(GstElement *element, gchar *padName);
+
 extern gboolean gst_bus_callback(GstBus *bus, GstMessage *message, gpointer data);
 
 extern GstBuffer* sensorMsgtoGstBuffer(std::shared_ptr<sensor_msgs::msg::Image> image);
 
 extern GstFlowReturn gstBuffertoSensorMsg(GstBuffer *buffer, std::shared_ptr<sensor_msgs::msg::Image> image);
+
+extern GstStructure* gstGetPadCapStructure(GstElement *element, gchar *padName);
 
 #ifdef __cplusplus
 } //extern C

@@ -131,41 +131,14 @@ std::shared_ptr<sensor_msgs::msg::Image> gstVideoDec::getFrame()
 
     if(m_sinkBufferQueue.m_SinkBuf.empty())
     {
-        // std::cerr << "m_gstSinkBuf is empty!" << std::endl;
         // std::this_thread::sleep_for(std::chrono::milliseconds(10000));
         return nullptr;
     }
-    // printVideoOutputFormat(m_gst_nvvidconv.get(), "src");
+
     std::shared_ptr<sensor_msgs::msg::Image> bgra_msg = m_sinkBufferQueue.m_SinkBuf.front();
     m_sinkBufferQueue.m_SinkBuf.pop();
 
     return bgra_msg;
-}
-
-void gstVideoDec::printVideoOutputFormat(GstElement *element, gchar *padName)
-{
-    GstPad *pad = NULL;
-    GstCaps *caps = NULL;
-    gchar * pad_name = padName;
-
-    /* Retrieve pad */
-    pad = gst_element_get_static_pad (element, pad_name);
-    if (!pad) {
-        g_printerr ("Could not retrieve pad '%s'\n", pad_name);
-        return;
-    }
-
-    /* Retrieve negotiated caps (or acceptable caps if negotiation is not finished yet) */
-    caps = gst_pad_get_current_caps (pad);
-    if (!caps)
-        caps = gst_pad_query_caps (pad, NULL);
-
-    /* Print and free */
-    g_print ("Caps for the %s pad:\n", pad_name);
-    print_caps (caps, "      ");
-    gst_caps_unref (caps);
-    gst_object_unref (pad);
-
 }
 
 int gstVideoDec::start_gst_pipeline()
@@ -180,7 +153,6 @@ int gstVideoDec::start_gst_pipeline()
         gst_object_unref (m_gst_pipeline.get());
         return -1;
     }
-    printVideoOutputFormat(m_gst_nvvidconv.get(), "src");
 
 }
 

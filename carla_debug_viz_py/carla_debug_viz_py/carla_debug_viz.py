@@ -56,7 +56,7 @@ def main(args=None):
         spin_thread.start()
 
         while rclpy.ok():
-            time.sleep(0.033)
+            # time.sleep(0.02)
             if debug_node.render(display):
                 return
             # print('pygame.display.flip')

@@ -28,8 +28,6 @@ public:
 
     std::shared_ptr<sensor_msgs::msg::Image> getFrame();
 
-    void printVideoOutputFormat(GstElement *element, gchar *padName);
-
     virtual ~gstVideoDec();
 
 private:
